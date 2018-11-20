@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/davidwalter0/go-u2f/cfg"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -74,18 +75,18 @@ func LazyUpdate() {
 			select {
 			case text, ok := <-Message:
 				if ok {
-					mutex.Lock()
-					if app.Debug {
+					// mutex.Lock()
+					if cfg.Env.Debugging {
 						log.Println("Before IdleAdd Status", text)
 					}
 					_, err = glib.IdleAdd(Status.SetText, text)
 					if err != nil {
 						log.Println("IdleAdd() failed", err)
 					}
-					if app.Debug {
+					if cfg.Env.Debugging {
 						log.Println("After IdleAdd Status", text)
 					}
-					mutex.Unlock()
+					// mutex.Unlock()
 				} else {
 					log.Println("Messages channel is closed")
 				}

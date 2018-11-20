@@ -1,30 +1,15 @@
-package main
+package u2f
 
 import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-
-	"github.com/flynn/hid"
-	"github.com/flynn/u2f/u2fhid"
-	"github.com/flynn/u2f/u2ftoken"
 )
 
 type Registration struct {
-	Challenge []byte
-	App       []byte
-	KeyHandle []byte
-}
-
-type Device struct {
-	DeviceInfo *hid.DeviceInfo
-	Device     *u2fhid.Device
-	Token      *u2ftoken.Token
-	Version    string
-	Result     []byte
-	Request    u2ftoken.AuthenticateRequest
-
-	Registration
+	Challenge   []byte
+	Application []byte
+	KeyHandle   []byte
 }
 
 func (reg *Registration) Dump() error {

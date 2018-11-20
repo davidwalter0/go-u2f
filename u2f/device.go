@@ -1,4 +1,4 @@
-package main
+package u2f
 
 import (
 	"crypto/rand"
@@ -7,11 +7,54 @@ import (
 	"log"
 	"time"
 
+	"github.com/davidwalter0/go-u2f/cfg"
+	"github.com/flynn/hid"
 	"github.com/flynn/u2f/u2fhid"
 	"github.com/flynn/u2f/u2ftoken"
 )
 
-func New() *Device {
+// type Env struct {
+// 	Tracing   bool
+// 	Debugging bool
+// 	File      string
+// }
+
+// type Tracer interface {
+// 	Filename() string
+// 	Trace(string) func()
+// 	String() string
+// }
+
+const (
+	Register                 = "Register"
+	Authenticate             = "Authenticate"
+	Registered               = "Registered"
+	Authenticated            = "Authenticated"
+	AuthenticationFailed     = "Authentication: Finalize"
+	MissingKey               = "Missing Key"
+	RegistrationFailed       = "Registration: Finalize"
+	PressKeyToAuthenticate   = "Press key to authenticate"
+	InsertSecurityKeyMessage = "Insert Security Key"
+	PrimaryTitle             = "%20.20s Security Key U2F -- %s"
+)
+
+var (
+	UnAuthenticatedTitle = fmt.Sprintf(PrimaryTitle, " ", "UnAuthenticated")
+	AuthenticatedTitle   = fmt.Sprintf(PrimaryTitle, " ", "Authenticated")
+	RegisteredTitle      = fmt.Sprintf(PrimaryTitle, " ", "Registered")
+)
+
+type Device struct {
+	DeviceInfo *hid.DeviceInfo
+	Device     *u2fhid.Device
+	Token      *u2ftoken.Token
+	Version    string
+	Result     []byte
+	Request    u2ftoken.AuthenticateRequest
+	Registration
+}
+
+func NewDevice() *Device {
 	devices, err := u2fhid.Devices()
 	if err != nil {
 		log.Fatal(err)
@@ -39,9 +82,9 @@ func (device *Device) String() string {
 
 func (device *Device) ChallengeInit() {
 	device.Challenge = make([]byte, 32)
-	device.App = make([]byte, 32)
+	device.Application = make([]byte, 32)
 	io.ReadFull(rand.Reader, device.Challenge)
-	io.ReadFull(rand.Reader, device.App)
+	io.ReadFull(rand.Reader, device.Application)
 }
 
 func (device *Device) Open() error {
@@ -67,32 +110,30 @@ func (device *Device) Close() {
 func (device *Device) SetRequest() {
 	device.Request = u2ftoken.AuthenticateRequest{
 		Challenge:   device.Challenge,
-		Application: device.App,
+		Application: device.Application,
 		KeyHandle:   device.KeyHandle,
 	}
 }
 
-func (device *Device) Register() error {
-	defer app.Trace("Register")()
+func (device *Device) Register(Message chan string) error {
+	defer cfg.Env.Trace("Register")()
 	var err error
 	device.Open()
 	defer device.Close()
 
 	var Result []byte
-	if err = device.Registration.ReadFile(app.Filename); err != nil {
+	if err = device.Registration.ReadFile(cfg.Env.Filename); err != nil {
 		device.ChallengeInit()
 		for {
 			Result, err = device.Token.Register(u2ftoken.RegisterRequest{
 				Challenge:   device.Challenge,
-				Application: device.App,
+				Application: device.Application,
 			})
 			if err == u2ftoken.ErrPresenceRequired {
 				time.Sleep(200 * time.Millisecond)
 				continue
 			} else if err != nil {
-				mutex.Lock()
-				Message <- fmt.Sprintf("Registration: Fail %s", err)
-				mutex.Unlock()
+				Send(fmt.Sprintf("Registration: Fail %s", err), Message)
 				return err
 			}
 			break
@@ -101,38 +142,33 @@ func (device *Device) Register() error {
 		khLen := int(Result[0])
 		Result = Result[1:]
 		device.KeyHandle = Result[:khLen]
-		device.WriteFile(app.Filename)
+		device.WriteFile(cfg.Env.Filename)
 	} else {
-		if app.Debug {
+		if cfg.Env.Debugging {
 			device.Dump()
 		}
 	}
-	log.Println(RegisteredTitle)
-	Window.SetTitle(RegisteredTitle)
 	return nil
 }
 
-func (device *Device) Authenticate() error {
-	defer app.Trace("Authenticate")()
+func (device *Device) Authenticate(Message chan string) error {
+	defer cfg.Env.Trace("Authenticate")()
 
 	var err error
 	device.Open()
-	if err = device.ReadFile(app.Filename); err != nil {
+	if err = device.ReadFile(cfg.Env.Filename); err != nil {
 		log.Println(err)
-		if err = device.Register(); err != nil {
+		if err = device.Register(Message); err != nil {
 			return err
 		}
 	}
 	defer device.Close()
 	device.SetRequest()
-	if app.Debug {
+	if cfg.Env.Debugging {
 		device.Dump()
 	}
 
 	if err = device.Token.CheckAuthenticate(device.Request); err != nil {
-		mutex.Lock()
-		Message <- fmt.Sprintf("Authenticating: Fail %s", err)
-		mutex.Unlock()
 		return err
 	}
 	io.ReadFull(rand.Reader, device.Challenge)
@@ -144,18 +180,16 @@ func (device *Device) Authenticate() error {
 		} else if err != nil {
 			return err
 		}
-		if app.Debug {
+		if cfg.Env.Debugging {
 			log.Printf("counter = %d, signature = %x", Result.Counter, Result.Signature)
 		}
 		break
 	}
-	log.Println(AuthenticatedTitle)
-	Window.SetTitle(AuthenticatedTitle)
 	return nil
 }
 
 func (device *Device) Wink() error {
-	defer app.Trace("Wink")()
+	defer cfg.Env.Trace("Wink")()
 
 	if device.Device.CapabilityWink {
 		for i := 0; i < 3; i++ {
@@ -172,49 +206,39 @@ func (device *Device) Wink() error {
 	return nil
 }
 
-func U2FAction(name string) error {
+func Send(text string, Message chan string) {
+	if Message != nil {
+		Message <- text
+	}
+}
+
+func U2FAction(name string, Message chan string) error {
 	switch name {
-	case "Register":
-		defer app.Trace("Action case: Register")()
+	case Register:
+		defer cfg.Env.Trace("Action case: Register")()
 		go func() {
-			handle := New()
+			handle := NewDevice()
 			if handle == nil {
-				mutex.Lock()
-				Message <- InsertSecurityKeyMessage
-				mutex.Unlock()
-				Action = RegistrationFailed
+				Send(InsertSecurityKeyMessage, Message)
 			} else {
-				if err := handle.Register(); err != nil {
-					Action = "Register"
-					mutex.Lock()
-					Message <- fmt.Sprintf("Registration Failed %s", err)
-					mutex.Unlock()
+				if err := handle.Register(Message); err != nil {
+					Send(fmt.Sprintf("Registration Failed %s", err), Message)
 				} else {
-					Action = Registered
-					mutex.Lock()
-					Message <- Registered
-					mutex.Unlock()
+					Send(Registered, Message)
 				}
 			}
 		}()
-	case "Authenticate":
-		defer app.Trace("Action case: Authenticate")()
+	case Authenticate:
+		defer cfg.Env.Trace("Action case: Authenticate")()
 		go func() {
-			handle := New()
+			handle := NewDevice()
 			if handle == nil {
-				mutex.Lock()
-				Message <- InsertSecurityKeyMessage
-				mutex.Unlock()
+				Send(InsertSecurityKeyMessage, Message)
 			} else {
-				if err := handle.Authenticate(); err != nil {
-					mutex.Lock()
-					Message <- fmt.Sprintf("Authentication Failed %s", err)
-					mutex.Unlock()
+				if err := handle.Authenticate(Message); err != nil {
+					Send(fmt.Sprintf("Authentication Failed %s", err), Message)
 				} else {
-					Action = Authenticated
-					mutex.Lock()
-					Message <- Authenticated
-					mutex.Unlock()
+					Send(Authenticated, Message)
 				}
 			}
 		}()

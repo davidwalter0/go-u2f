@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync/atomic"
 
+	"github.com/davidwalter0/go-u2f/cfg"
+	"github.com/davidwalter0/go-u2f/u2f"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -61,10 +63,14 @@ func GetTreeSelectionName(tree *gtk.TreeSelection) string {
 	return ""
 }
 
+// var once = sync.Once{}
+var Semaphore = &int64(0)
+
 func SelectionChanged(tree *gtk.TreeSelection) {
 	called := atomic.AddInt64(Semaphore, 1)
-	defer app.Trace("SelectionChanged")()
+	defer cfg.Env.Trace("SelectionChanged")()
 	name := GetTreeSelectionName(tree)
+	//	once.Do(func() { Deselect(tree) })
 	switch called {
 	case 1:
 		Deselect(tree)
@@ -76,10 +82,10 @@ func SelectionChanged(tree *gtk.TreeSelection) {
 func ShowEntry(tree *gtk.TreeSelection) {
 	switch Action {
 	case "Register", "Authenticate":
-		mutex.Lock()
+		// mutex.Lock()
 		Message <- fmt.Sprintf("%s: %s", Action, PressKeyToAuthenticate)
-		mutex.Unlock()
-		if err := U2FAction(Action); err != nil {
+		// mutex.Unlock()
+		if err := u2f.U2FAction(Action, Message); err != nil {
 			Column.SetTitle(err.Error())
 		}
 	case "Registered":
@@ -101,7 +107,7 @@ func Deselect(tree *gtk.TreeSelection) {
 
 // Handler of "changed" signal of TreeView's selection
 func Finalize(s *gtk.TreeSelection) {
-	defer app.Trace("Finalize")()
+	defer cfg.Env.Trace("Finalize")()
 	switch Action {
 	case Registered, Authenticated:
 	case MissingKey, RegistrationFailed, AuthenticationFailed:
@@ -110,7 +116,7 @@ func Finalize(s *gtk.TreeSelection) {
 }
 
 func Act(entry *gtk.Entry) {
-	defer app.Trace("Act")()
+	defer cfg.Env.Trace("Act")()
 	// if IgnAct() {
 	// 	return
 	// }
@@ -119,7 +125,7 @@ func Act(entry *gtk.Entry) {
 }
 
 func IgnAct() bool {
-	defer app.Trace("IgnAct")()
+	defer cfg.Env.Trace("IgnAct")()
 
 	if LastAction == Action {
 		return true
