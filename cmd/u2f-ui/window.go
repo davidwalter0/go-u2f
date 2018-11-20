@@ -65,17 +65,20 @@ func SelectionChanged(tree *gtk.TreeSelection) {
 }
 
 func ShowEntry(tree *gtk.TreeSelection) {
+	errors := make(chan error, 1)
 	switch Action {
-	case "Register", "Authenticate":
-		// mutex.Lock()
+	case u2f.Register:
 		Message <- fmt.Sprintf("%s: %s", Action, u2f.PressKeyToAuthenticate)
-		// mutex.Unlock()
-		if err := u2f.U2FAction(Action, Message); err != nil {
-			Column.SetTitle(err.Error())
+		u2f.GTKU2FAction(Action, Message, errors)
+		if err := <-errors; err != nil {
+			Message <- err.Error()
 		}
-	case "Registered":
-	case "Authenticated":
-	default:
+	case u2f.Authenticate:
+		Message <- fmt.Sprintf("%s: %s", Action, u2f.PressKeyToAuthenticate)
+		u2f.GTKU2FAction(Action, Message, errors)
+		if err := <-errors; err != nil {
+			Message <- err.Error()
+		}
 	}
 }
 

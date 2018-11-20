@@ -14,14 +14,14 @@ var (
 )
 
 type Environment struct {
-	Filename  string `json:"filename" required:"true" doc:"filename to persist state to"` // default:"registration.json"`
-	Debugging bool
-	Tracing   bool
+	Filename  string `json:"filename" required:"true" doc:"filename persist state"`
+	Debugging bool   `json:"debugging"`
+	Tracing   bool   `json:"tracing"`
 }
 
 func Setup() error {
 	if Env.Debugging {
-		Env.Trace("Setup")
+		defer Env.Trace("Setup")()
 	}
 	return cfg.Env(Env)
 }
@@ -51,6 +51,14 @@ func (env *Environment) Trace(function string, args ...string) func() {
 
 func (env *Environment) String() string {
 	text, err := json.Marshal(*env)
+	if err != nil {
+		return ""
+	}
+	return string(text)
+}
+
+func (env *Environment) Format() string {
+	text, err := json.MarshalIndent(*env, "", "  ")
 	if err != nil {
 		return ""
 	}

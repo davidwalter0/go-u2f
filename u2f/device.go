@@ -216,33 +216,78 @@ func U2FAction(name string, Message chan string) error {
 	switch name {
 	case Register:
 		defer cfg.Env.Trace("Action case: Register")()
+
+		handle := NewDevice()
+		if handle == nil {
+			Send(InsertSecurityKeyMessage, Message)
+			return fmt.Errorf("Registration Failed %s", InsertSecurityKeyMessage)
+		} else {
+			if err := handle.Register(Message); err != nil {
+				Send(fmt.Sprintf("Registration Failed %s", err), Message)
+				return fmt.Errorf("Registration Failed %s", err)
+			} else {
+				Send(Registered, Message)
+			}
+		}
+
+	case Authenticate:
+		defer cfg.Env.Trace("Action case: Authenticate")()
+
+		handle := NewDevice()
+		if handle == nil {
+			Send(InsertSecurityKeyMessage, Message)
+			return fmt.Errorf("Registration Failed %s", InsertSecurityKeyMessage)
+		} else {
+			if err := handle.Authenticate(Message); err != nil {
+				Send(fmt.Sprintf("Authentication Failed %s", err), Message)
+				return fmt.Errorf("Authentication Failed %s", err)
+			} else {
+				Send(Authenticated, Message)
+			}
+		}
+
+	default:
+		return fmt.Errorf("U2FAction: Unknown Action argument %s", name)
+	}
+	return nil
+}
+
+func GTKU2FAction(name string, Message chan string, errors chan error) {
+	switch name {
+	case Register:
 		go func() {
+			defer cfg.Env.Trace("Action case: Register")()
 			handle := NewDevice()
 			if handle == nil {
 				Send(InsertSecurityKeyMessage, Message)
+				errors <- fmt.Errorf("Registration Failed %s", InsertSecurityKeyMessage)
 			} else {
 				if err := handle.Register(Message); err != nil {
 					Send(fmt.Sprintf("Registration Failed %s", err), Message)
+					errors <- fmt.Errorf("Registration Failed %s", err)
 				} else {
 					Send(Registered, Message)
 				}
 			}
 		}()
 	case Authenticate:
-		defer cfg.Env.Trace("Action case: Authenticate")()
 		go func() {
+			defer cfg.Env.Trace("Action case: Authenticate")()
 			handle := NewDevice()
 			if handle == nil {
 				Send(InsertSecurityKeyMessage, Message)
+				errors <- fmt.Errorf("Registration Failed %s", InsertSecurityKeyMessage)
 			} else {
 				if err := handle.Authenticate(Message); err != nil {
 					Send(fmt.Sprintf("Authentication Failed %s", err), Message)
+					errors <- fmt.Errorf("Authentication Failed %s", err)
 				} else {
 					Send(Authenticated, Message)
 				}
 			}
 		}()
 	default:
+		errors <- fmt.Errorf("U2FAction: Unknown Action argument %s", name)
 	}
-	return nil
+	errors <- nil
 }
