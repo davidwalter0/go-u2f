@@ -9,6 +9,12 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
+func init() {
+	if err := cfg.Setup(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	gtk.Init(&os.Args)
 
@@ -47,7 +53,7 @@ func main() {
 
 	Window.Add(RootBox)
 	// Populating list
-	AppendMultipleToList( //"----- Security Key U2F Authentication -----",
+	AppendMultipleToList(
 		"",
 		"Register",
 		"Authenticate",
