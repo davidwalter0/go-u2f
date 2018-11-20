@@ -10,31 +10,17 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-const (
-	Registered             = "Registered"
-	Authenticated          = "Authenticated"
-	AuthenticationFailed   = "Authentication: Finalize"
-	MissingKey             = "Missing Key"
-	RegistrationFailed     = "Registration: Finalize"
-	PressKeyToAuthenticate = "Press key to authenticate"
-)
-
 var (
-	Message                  chan string = make(chan string, 1)
-	PrimaryTitle                         = "%20.20s Security Key U2F -- %s"
-	UnAuthenticatedTitle                 = fmt.Sprintf(PrimaryTitle, " ", "UnAuthenticated")
-	AuthenticatedTitle                   = fmt.Sprintf(PrimaryTitle, " ", "Authenticated")
-	RegisteredTitle                      = fmt.Sprintf(PrimaryTitle, " ", "Registered")
-	InsertSecurityKeyMessage             = "Insert Security Key"
-	Window                   *gtk.Window
-	RootBox                  *gtk.Box
-	TreeView                 *gtk.TreeView
-	Status                   *gtk.Entry
-	ListStore                *gtk.ListStore
-	Column                   *gtk.TreeViewColumn
-	Action                   string
-	LastAction               string
-	BottomLabel              *gtk.Label
+	Message     chan string = make(chan string, 1)
+	Window      *gtk.Window
+	RootBox     *gtk.Box
+	TreeView    *gtk.TreeView
+	Status      *gtk.Entry
+	ListStore   *gtk.ListStore
+	Column      *gtk.TreeViewColumn
+	Action      string
+	LastAction  string
+	BottomLabel *gtk.Label
 )
 
 // Appends single value to the TreeView's model
@@ -82,7 +68,7 @@ func ShowEntry(tree *gtk.TreeSelection) {
 	switch Action {
 	case "Register", "Authenticate":
 		// mutex.Lock()
-		Message <- fmt.Sprintf("%s: %s", Action, PressKeyToAuthenticate)
+		Message <- fmt.Sprintf("%s: %s", Action, u2f.PressKeyToAuthenticate)
 		// mutex.Unlock()
 		if err := u2f.U2FAction(Action, Message); err != nil {
 			Column.SetTitle(err.Error())
@@ -108,8 +94,8 @@ func Deselect(tree *gtk.TreeSelection) {
 func Finalize(s *gtk.TreeSelection) {
 	defer cfg.Env.Trace("Finalize")()
 	switch Action {
-	case Registered, Authenticated:
-	case MissingKey, RegistrationFailed, AuthenticationFailed:
+	case u2f.Registered, u2f.Authenticated:
+	case u2f.MissingKey, u2f.RegistrationFailed, u2f.AuthenticationFailed:
 		Deselect(s)
 	}
 }
@@ -132,14 +118,14 @@ func IgnAct() bool {
 
 	switch Action {
 	case
-		Registered,
-		Authenticated,
-		RegisteredTitle,
-		AuthenticatedTitle,
-		UnAuthenticatedTitle,
-		MissingKey,
-		AuthenticationFailed,
-		RegistrationFailed:
+		u2f.Registered,
+		u2f.Authenticated,
+		u2f.RegisteredTitle,
+		u2f.AuthenticatedTitle,
+		u2f.UnAuthenticatedTitle,
+		u2f.MissingKey,
+		u2f.AuthenticationFailed,
+		u2f.RegistrationFailed:
 		return true
 	default:
 	}

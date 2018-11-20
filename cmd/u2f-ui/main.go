@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/davidwalter0/go-u2f/cfg"
+	"github.com/davidwalter0/go-u2f/u2f"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -26,8 +27,8 @@ func main() {
 	ListStore, _ = gtk.ListStoreNew(glib.TYPE_STRING)
 
 	// Window properties
-	log.Println(UnAuthenticatedTitle)
-	Window.SetTitle(UnAuthenticatedTitle)
+	log.Println(u2f.UnAuthenticatedTitle)
+	Window.SetTitle(u2f.UnAuthenticatedTitle)
 	Window.Connect("destroy", gtk.MainQuit)
 
 	// TreeView properties
