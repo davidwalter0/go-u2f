@@ -1,9 +1,7 @@
-U2F Test examples
+U2F Test examples for local security key use
 ---
 
-
 Currently storing registrations in a json formatted flat file
-
 
 ```
 go get github.com/davidwalter0/go-u2f
@@ -12,7 +10,7 @@ go build -ldflags '-w -s'
 export FILENAME=registrations.json
 ./u2f-ui
 ```
-[u2f gtk ui](images/u2f-ui.png)
+![u2f gtk ui](images/u2f-ui.png)
 
 ```
 go get github.com/davidwalter0/go-u2f
