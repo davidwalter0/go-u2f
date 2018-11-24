@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 
@@ -14,6 +15,15 @@ func init() {
 	if err := cfg.Setup(); err != nil {
 		log.Fatal(err)
 	}
+	CfgDump()
+}
+
+func CfgDump() {
+	text, err := json.MarshalIndent(cfg.Env, "", "  ")
+	if err != nil {
+		return
+	}
+	log.Printf("\n%s\n", string(text))
 }
 
 func main() {

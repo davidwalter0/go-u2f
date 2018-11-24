@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -13,6 +14,9 @@ func init() {
 	if err := cfg.Setup(); err != nil {
 		log.Fatal(err)
 	}
+
+	CfgDump()
+
 	go func() {
 		for {
 			select {
@@ -21,6 +25,14 @@ func init() {
 			}
 		}
 	}()
+}
+
+func CfgDump() {
+	text, err := json.MarshalIndent(cfg.Env, "", "  ")
+	if err != nil {
+		return
+	}
+	log.Printf("\n%s\n", string(text))
 }
 
 var Message = make(chan string)
